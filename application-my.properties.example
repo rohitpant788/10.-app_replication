@@ -1,0 +1,9 @@
+# ============================================
+# PostgreSQL Database Configuration (Neon DB)
+# ============================================
+# This is a TEMPLATE file. DO NOT put real credentials here.
+# Copy this file to 'application-my.properties' and fill in your actual values.
+
+spring.datasource.url=jdbc:postgresql://YOUR_DB_HOST/YOUR_DB_NAME?sslmode=require&channel_binding=require
+spring.datasource.username=YOUR_DB_USERNAME
+spring.datasource.password=YOUR_DB_PASSWORD

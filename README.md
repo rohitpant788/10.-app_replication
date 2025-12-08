@@ -4,6 +4,77 @@ A microservices-based application stack with data, refdata, file, and search ser
 
 ---
 
+## 🔒 Security Configuration (First-Time Setup)
+
+> **IMPORTANT**: Before running the application, you must configure your database credentials externally to keep them secure and out of version control.
+
+### Step 1: Create External Configuration File
+
+The application uses an external configuration file to store sensitive database credentials. This file is **not tracked by git** to prevent accidental exposure.
+
+1. **Locate the template file** in the project root:
+   ```
+   application-my.properties.example
+   ```
+
+2. **Copy it to create your local configuration**:
+   ```powershell
+   # From the project root directory (F:\10. app_replication)
+   copy application-my.properties.example application-my.properties
+   ```
+
+3. **Edit `application-my.properties`** and replace the placeholders with your actual database credentials:
+   ```properties
+   spring.datasource.url=jdbc:postgresql://YOUR_ACTUAL_DB_HOST/YOUR_DB_NAME?sslmode=require&channel_binding=require
+   spring.datasource.username=YOUR_ACTUAL_USERNAME
+   spring.datasource.password=YOUR_ACTUAL_PASSWORD
+   ```
+
+### Step 2: Verify Security
+
+✅ **Verify the following**:
+- `application-my.properties` is listed in `.gitignore`
+- `application-my.properties` is **NOT** showing up in `git status`
+- Only `application-my.properties.example` (template) is tracked by git
+
+### How It Works
+
+#### Local Development (application-local.properties)
+
+When running with `-Dspring.profiles.active=local`, microservices automatically import the external configuration:
+
+```properties
+# In application-local.properties
+spring.config.import=optional:file:../application-my.properties
+```
+
+This file-based approach is perfect for local development where credentials are stored securely on your machine.
+
+#### Production Deployment (application-prod.properties)
+
+When running with `-Dspring.profiles.active=prod`, microservices use **environment variables**:
+
+```properties
+# In application-prod.properties
+spring.datasource.url=${DATABASE_URL}
+spring.datasource.username=${DATABASE_USERNAME}
+spring.datasource.password=${DATABASE_PASSWORD}
+```
+
+Set these environment variables in your production environment (Docker, Kubernetes, etc.). See [Production Deployment](#-additional-notes) section for examples.
+
+### Benefits
+
+This approach ensures:
+- ✅ **No secrets in version control** - Credentials stay on your local machine
+- ✅ **Easy updates** - Change credentials in one place for local dev
+- ✅ **Profile-specific** - File-based for local, env vars for production
+- ✅ **Team-friendly** - Each developer maintains their own credentials
+- ✅ **Production-ready** - Uses industry-standard environment variables
+
+
+---
+
 ## Quick Start with Docker Compose
 
 **Docker Compose is the recommended way to run this application locally for development and testing.**
@@ -12,6 +83,8 @@ A microservices-based application stack with data, refdata, file, and search ser
 
 - **Docker Desktop**: Ensure Docker is installed and running.
 - **Docker Compose**: Comes bundled with Docker Desktop.
+- **Database Credentials**: Configure `application-my.properties` (see Security Configuration above)
+
 
 ### Building and Running the Application
 
@@ -259,3 +332,208 @@ To stop and remove the entire cluster:
 ```powershell
 kind delete cluster --name app-cluster
 ```
+
+---
+
+## 🔧 Troubleshooting
+
+### Database Connection Issues
+
+**Problem**: Service fails to start with "Could not open JDBC Connection" or similar database errors.
+
+**Solution**:
+1. Verify `application-my.properties` exists in the project root
+2. Check that database credentials are correct
+3. Ensure the PostgreSQL database is accessible from your network
+4. Test database connectivity:
+   ```powershell
+   # From project root
+   cd data
+   ./mvnw spring-boot:run -Dspring.profiles.active=local
+   ```
+
+### Configuration File Not Found
+
+**Problem**: Service logs show "application-my.properties not found" or "Could not import optional file".
+
+**Solution**:
+1. Ensure `application-my.properties` is in the **project root** directory (same level as `README.md`)
+2. The path in `application.properties` uses `../application-my.properties` which goes up one directory from the service folder
+3. Verify file location:
+   ```
+   F:\10. app_replication\application-my.properties  ✅ Correct
+   F:\10. app_replication\data\application-my.properties  ❌ Wrong
+   ```
+
+### Secrets Accidentally Committed to Git
+
+**Problem**: You accidentally committed database credentials to version control.
+
+**Solution**:
+1. **Immediately rotate your database credentials** (change password)
+2. Remove the file from git history:
+   ```powershell
+   # Remove from current commit
+   git rm --cached data/src/main/resources/application-local.properties
+   git commit -m "Remove sensitive credentials"
+   
+   # For complete history cleanup (use with caution):
+   git filter-branch --force --index-filter "git rm --cached --ignore-unmatch path/to/file.properties" --prune-empty --tag-name-filter cat -- --all
+   ```
+3. Verify `.gitignore` is properly configured
+4. Force push (if working on a personal branch):
+   ```powershell
+   git push --force origin your-branch-name
+   ```
+
+### Verifying Security
+
+Run these commands to ensure secrets are protected:
+
+```powershell
+# Check gitignore is working
+git status
+
+# Should NOT show:
+# - application-my.properties
+# - .vscode/
+
+# Should show (as untracked or ignored):
+# - application-my.properties.example (this is OK to commit)
+
+# Verify no secrets in tracked files
+git grep -i "npg_qnJyzb4A8Grk"  # Should return nothing
+git grep -i "neondb_owner"      # Should return nothing
+```
+
+### Docker Build Issues
+
+**Problem**: Docker build fails with "npm integrity checksum failed" or similar.
+
+**Solution**: See the UI Dockerfile - it uses `npm install` instead of `npm ci` to handle missing package-lock.json files.
+
+---
+
+## 📝 Additional Notes
+
+### For Team Members
+
+When setting up this project:
+1. Clone the repository
+2. Copy `application-my.properties.example` to `application-my.properties`
+3. Ask the team lead for database credentials
+4. Never commit `application-my.properties` to version control
+
+### For Production Deployment
+
+The application is already configured to use **environment variables** in production profile. Here's how to set them up:
+
+#### Option 1: Docker Compose
+
+Update your `docker-compose.yml`:
+
+```yaml
+services:
+  data-service:
+    image: app-data-service:latest
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - DATABASE_URL=jdbc:postgresql://your-prod-host/neondb?sslmode=require
+      - DATABASE_USERNAME=your_prod_user
+      - DATABASE_PASSWORD=your_prod_password
+    ports:
+      - "9090:9090"
+```
+
+Or use `.env` file:
+
+```bash
+# .env file (add to .gitignore!)
+DATABASE_URL=jdbc:postgresql://your-prod-host/neondb?sslmode=require
+DATABASE_USERNAME=your_prod_user
+DATABASE_PASSWORD=your_prod_password
+```
+
+```yaml
+services:
+  data-service:
+    image: app-data-service:latest
+    env_file:
+      - .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+```
+
+#### Option 2: Kubernetes Secrets
+
+Create a Kubernetes secret:
+
+```bash
+kubectl create secret generic db-credentials \
+  --from-literal=DATABASE_URL='jdbc:postgresql://your-host/neondb?sslmode=require' \
+  --from-literal=DATABASE_USERNAME='your_user' \
+  --from-literal=DATABASE_PASSWORD='your_password'
+```
+
+Reference in deployment:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-service
+spec:
+  template:
+    spec:
+      containers:
+      - name: data-service
+        image: app-data-service:latest
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: DATABASE_URL
+        - name: DATABASE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: DATABASE_USERNAME
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: DATABASE_PASSWORD
+```
+
+#### Option 3: Docker Run
+
+```bash
+docker run -d \
+  -e SPRING_PROFILES_ACTIVE=prod \
+  -e DATABASE_URL='jdbc:postgresql://your-host/neondb?sslmode=require' \
+  -e DATABASE_USERNAME='your_user' \
+  -e DATABASE_PASSWORD='your_password' \
+  -p 9090:9090 \
+  app-data-service:latest
+```
+
+#### Option 4: AWS Secrets Manager (Advanced)
+
+1. Store credentials in AWS Secrets Manager
+2. Add AWS SDK dependency to `pom.xml`
+3. Update `application-prod.properties`:
+
+```properties
+spring.config.import=aws-secretsmanager:prod/database-credentials
+```
+
+#### Security Best Practices
+
+- ✅ **Never commit** `.env` files containing real credentials
+- ✅ **Use secret scanning** tools in your CI/CD pipeline (e.g., GitGuardian, TruffleHog)
+- ✅ **Rotate credentials** regularly
+- ✅ **Use least privilege** - production credentials should have minimal required permissions
+- ✅ **Enable audit logging** for credential access

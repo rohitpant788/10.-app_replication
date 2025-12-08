@@ -23,15 +23,15 @@ This guide covers the database setup for the Data Microservice using **Neon DB**
 
 ### Connection Details
 
-Your Neon DB connection is configured in `application.properties`:
+Database connection credentials are configured externally in `application-my.properties` in the project root.
+
+All microservices import this configuration using:
 
 ```properties
-spring.datasource.url=jdbc:postgresql://ep-steep-paper-a4w8wloy-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require
-spring.datasource.username=neondb_owner
-spring.datasource.password=npg_qnJyzb4A8Grk
+spring.config.import=optional:file:../application-my.properties
 ```
 
-> **Security Note**: In production, use environment variables instead of hardcoded credentials.
+> **Security Note**: Database credentials are kept in `application-my.properties` which is NOT tracked by git. See the main README.md for setup instructions.
 
 ---
 
@@ -335,8 +335,10 @@ Unfortunately, Spring Boot doesn't provide a built-in way to rollback. Options:
 
 ### Using psql (Command Line)
 
+Retrieve your database credentials from `../application-my.properties` and connect using:
+
 ```bash
-psql 'postgresql://neondb_owner:npg_qnJyzb4A8Grk@ep-steep-paper-a4w8wloy-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require'
+psql 'postgresql://[YOUR_USERNAME]:[YOUR_PASSWORD]@[YOUR_DB_HOST]/neondb?sslmode=require'
 ```
 
 Common commands:

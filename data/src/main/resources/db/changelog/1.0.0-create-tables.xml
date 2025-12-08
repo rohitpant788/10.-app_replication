@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Tag Version 1.0.0 - Baseline -->
+    <changeSet id="1.0.0-tag" author="rohit">
+        <tagDatabase tag="1.0.0"/>
+    </changeSet>
+
+    <!-- Create ref_country table (for app-refdata-service) -->
+    <changeSet id="1.0.0-create-ref_country" author="rohit">
+        <comment>Create ref_country table for reference data service</comment>
+        <createTable tableName="ref_country">
+            <column name="code" type="varchar(10)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <rollback>
+            <dropTable tableName="ref_country"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Create cases table (for app-data-service) -->
+    <changeSet id="1.0.0-create-cases" author="rohit">
+        <comment>Create cases table for data service</comment>
+        <createTable tableName="cases">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="title" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="text"/>
+            <column name="country" type="varchar(10)"/>
+            <column name="amount" type="numeric"/>
+            <column name="reporter_name" type="varchar(255)"/>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <rollback>
+            <dropTable tableName="cases"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Create doc table (for app-file-service) -->
+    <changeSet id="1.0.0-create-doc" author="rohit">
+        <comment>Create doc table for file storage service</comment>
+        <createTable tableName="doc">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="content" type="BYTEA">
+                <constraints nullable="false"/>
+            </column>
+            <column name="uploaded_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="uploaded_by" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <rollback>
+            <dropTable tableName="doc"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Create file_metadata table (for app-file-service) -->
+    <changeSet id="1.0.0-create-file_metadata" author="rohit">
+        <comment>Create file_metadata table for file service with foreign keys</comment>
+        <createTable tableName="file_metadata">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <!-- FK to case (may be NULL while still TEMP) -->
+            <column name="case_id" type="BIGINT">
+                <constraints nullable="true"/>
+            </column>
+            <!-- FK to doc -->
+            <column name="doc_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="file_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="file_size" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="content_type" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="uploaded_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="uploaded_by" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- FK to doc -->
+        <addForeignKeyConstraint
+                constraintName="fk_filemetadata_doc"
+                baseTableName="file_metadata"
+                baseColumnNames="doc_id"
+                referencedTableName="doc"
+                referencedColumnNames="id"
+                onDelete="CASCADE"/>
+
+        <rollback>
+            <dropTable tableName="file_metadata"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="1.4-create-case-sequence" author="rohit">
+        <createSequence sequenceName="cases_id_seq"
+                        startValue="1"
+                        incrementBy="1"/>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: refdata-service
+  labels:
+    app: refdata-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: refdata-service
+  template:
+    metadata:
+      labels:
+        app: refdata-service
+    spec:
+      containers:
+      - name: refdata-service
+        image: app-refdata-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 9092
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "local"

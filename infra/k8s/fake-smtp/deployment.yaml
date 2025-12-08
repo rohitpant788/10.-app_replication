@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fake-smtp
+  labels:
+    app: fake-smtp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fake-smtp
+  template:
+    metadata:
+      labels:
+        app: fake-smtp
+    spec:
+      containers:
+      - name: fake-smtp
+        image: reachfive/fake-smtp-server:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 25
+        - containerPort: 1080

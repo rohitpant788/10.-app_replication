@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Insert Reference Data for Countries -->
+    <changeSet id="1.0.1-insert-countries" author="rohit">
+        <comment>Insert reference country data</comment>
+        
+        <!-- India -->
+        <insert tableName="ref_country">
+            <column name="code" value="IN"/>
+            <column name="name" value="India"/>
+        </insert>
+        
+        <!-- United States -->
+        <insert tableName="ref_country">
+            <column name="code" value="US"/>
+            <column name="name" value="United States"/>
+        </insert>
+        
+        <!-- United Kingdom -->
+        <insert tableName="ref_country">
+            <column name="code" value="UK"/>
+            <column name="name" value="United Kingdom"/>
+        </insert>
+        
+        <!-- Singapore -->
+        <insert tableName="ref_country">
+            <column name="code" value="SG"/>
+            <column name="name" value="Singapore"/>
+        </insert>
+        
+        <!-- Australia -->
+        <insert tableName="ref_country">
+            <column name="code" value="AU"/>
+            <column name="name" value="Australia"/>
+        </insert>
+        
+        <rollback>
+            <delete tableName="ref_country">
+                <where>code IN ('IN', 'US', 'UK', 'SG', 'AU')</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

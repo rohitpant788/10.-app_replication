@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-service
+  labels:
+    app: file-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: file-service
+  template:
+    metadata:
+      labels:
+        app: file-service
+    spec:
+      containers:
+      - name: file-service
+        image: app-file-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 9091
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "local"
+        - name: DATA_SERVICE_BASE-URL
+          value: "http://data-service:9090"

@@ -1,0 +1,54 @@
+services:
+  data-service:
+    build: ../../data
+    image: app-data-service
+    ports:
+      - "9090:9090"
+    environment:
+      - SPRING_PROFILES_ACTIVE=local
+      - SPRING_MAIL_HOST=fake-smtp
+      - SPRING_MAIL_PORT=25
+    depends_on:
+      - fake-smtp
+
+  refdata-service:
+    build: ../../refdata
+    image: app-refdata-service
+    ports:
+      - "9092:9092"
+    environment:
+      - SPRING_PROFILES_ACTIVE=local
+
+  search-service:
+    build: ../../search
+    image: app-search-service
+    ports:
+      - "9093:9093"
+    environment:
+      - SPRING_PROFILES_ACTIVE=local
+
+  file-service:
+    build: ../../file
+    image: app-file-service
+    ports:
+      - "9091:9091"
+    environment:
+      - SPRING_PROFILES_ACTIVE=local
+      - DATA_SERVICE_BASE-URL=http://data-service:9090
+    depends_on:
+      - data-service
+
+  ui:
+    build: ../../ui
+    image: app-ui
+    ports:
+      - "3000:80"
+    depends_on:
+      - data-service
+      - file-service
+
+  fake-smtp:
+    image: reachfive/fake-smtp-server
+    ports:
+      - "1025:25"
+      - "1080:1080"

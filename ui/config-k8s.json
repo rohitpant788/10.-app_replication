@@ -1,0 +1,20 @@
+{
+    "microservices": {
+        "data": {
+            "baseUrl": "/api/data",
+            "description": "Data microservice - handles case management"
+        },
+        "refdata": {
+            "baseUrl": "/api/refdata",
+            "description": "Reference Data microservice"
+        },
+        "file": {
+            "baseUrl": "/api/file",
+            "description": "File microservice - handles file uploads and attachments"
+        },
+        "search": {
+            "baseUrl": "/api/search",
+            "description": "Search microservice"
+        }
+    }
+}

@@ -1,19 +1,19 @@
 ﻿{
   "microservices": {
     "data": {
-      "baseUrl": "http://localhost:9090",
+      "baseUrl": "/api/data",
       "description": "Data microservice - handles case management"
     },
     "refdata": {
-      "baseUrl": "http://localhost:9092",
+      "baseUrl": "/api/refdata",
       "description": "Reference Data microservice"
     },
     "file": {
-      "baseUrl": "http://localhost:9091",
+      "baseUrl": "/api/file",
       "description": "File microservice - handles file uploads and attachments"
     },
     "search": {
-      "baseUrl": "http://localhost:9093",
+      "baseUrl": "/api/search",
       "description": "Search microservice"
     }
   }

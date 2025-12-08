@@ -54,23 +54,7 @@ spec:
             secretKeyRef:
               name: db-credentials
               key: DATABASE_PASSWORD
-        # Health probes
-        livenessProbe:
-          httpGet:
-            path: /actuator/health/liveness
-            port: 9093
-          initialDelaySeconds: 120
-          periodSeconds: 15
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /actuator/health/readiness
-            port: 9093
-          initialDelaySeconds: 90
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
+        # Health probes disabled - actuator endpoints not working
         # Resource limits
         resources:
           requests:
@@ -79,6 +63,3 @@ spec:
           limits:
             cpu: "1000m"
             memory: "1Gi"
-
-
-

@@ -275,41 +275,54 @@ Apply the Kubernetes manifests:
 # 1. Deploy FakeSMTP (Dependency)
 kubectl apply -f infra/k8s/fake-smtp/
 
-# 2. Deploy Microservices
+# 2. Create Database Secret (REQUIRED!)
+kubectl apply -f infra/k8s/db-secret.yaml
+
+# 3. Deploy Microservices
 kubectl apply -f infra/k8s/data-service/
 kubectl apply -f infra/k8s/refdata-service/
-kubectl apply -f infra/k8s/file-service/
+kubectl apply -f  infra/k8s/file-service/
 kubectl apply -f infra/k8s/search-service/
 
-# 3. Deploy UI
+# 4. Deploy UI
 kubectl apply -f infra/k8s/ui/
 ```
 
-Verify everything is running:
+> **Important**: The `db-secret.yaml` contains database credentials and **must** be applied before deploying services.
+
+Verify all pods are running:
 ```powershell
 kubectl get pods
-kubectl get svc
 ```
+
+All pods should show `1/1` in the `READY` column and `Running` status.
 
 ---
 
 ### 5. Port Forwarding & Access
 
-Access services via **Port Forwarding**:
+**⚠️ Important Note about Kind Clusters:**  
+Kind (Kubernetes in Docker) runs inside Docker containers, so NodePort services **are NOT automatically exposed** to `localhost`. You **must** use `kubectl port-forward` to access services from your browser.
 
 #### Access the UI
-Open a terminal and run:
-```powershell
-kubectl port-forward svc/ui 3000:80
-```
-> **Access URL**: [http://localhost:3000](http://localhost:3000)
 
-#### Access FakeSMTP Emails
-Open another terminal:
+Open a **separate PowerShell/terminal window** and run:
 ```powershell
-kubectl port-forward svc/fake-smtp 1080:1080
+kubectl port-forward svc/ui 30000:80
 ```
-> **Access URL**: [http://localhost:1080](http://localhost:1080)
+> **Access URL**: [http://localhost:30000](http://localhost:30000)
+
+> ⚠️ **Keep this terminal window open** - closing it will stop the port forward.
+
+#### Access FakeSMTP Web Interface
+
+Open **another PowerShell/terminal window**:
+```powershell
+kubectl port-forward svc/fake-smtp 30001:1080
+```
+> **Access URL**: [http://localhost:30001](http://localhost:30001)
+
+> 💡 **Tip**: You can run these commands in the background or use separate terminal tabs to keep them all active simultaneously.
 
 ---
 

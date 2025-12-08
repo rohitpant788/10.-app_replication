@@ -19,5 +19,5 @@ spec:
         image: reachfive/fake-smtp-server:latest
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 25
-        - containerPort: 1080
+        - containerPort: 1025  # SMTP port
+        - containerPort: 1080  # HTTP web interface

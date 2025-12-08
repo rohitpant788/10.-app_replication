@@ -6,6 +6,11 @@ metadata:
     app: refdata-service
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: refdata-service
@@ -20,9 +25,19 @@ spec:
         imagePullPolicy: Never
         ports:
         - containerPort: 9092
+          name: http
         env:
+        # Non-sensitive config from ConfigMap
         - name: SPRING_PROFILES_ACTIVE
-          value: "local"
+          valueFrom:
+            configMapKeyRef:
+              name: refdata-service-config
+              key: SPRING_PROFILES_ACTIVE
+        - name: LOGGING_LEVEL_ROOT
+          valueFrom:
+            configMapKeyRef:
+              name: refdata-service-config
+              key: LOGGING_LEVEL_ROOT
         # Database credentials from Secret
         - name: SPRING_DATASOURCE_URL
           valueFrom:
@@ -39,3 +54,31 @@ spec:
             secretKeyRef:
               name: db-credentials
               key: DATABASE_PASSWORD
+        # Health probes
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 9092
+          initialDelaySeconds: 120
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 9092
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        # Resource limits
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+
+
+

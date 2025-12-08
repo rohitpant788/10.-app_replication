@@ -173,19 +173,6 @@ docker-compose exec data-service sh
 
 ---
 
-## Kubernetes Deployment
-
-**For production-like deployment or learning Kubernetes, follow these instructions.**
-
-### Prerequisites
-
-1. **Docker Desktop**: Ensure Docker is installed and running.
-2. **Kind**: Kubernetes in Docker.
-3. **Kubectl**: Kubernetes command-line tool.
-
-#### Installing Kind & Kubectl (Windows)
-
-Using **Chocolatey**:
 ```powershell
 choco install kind
 choco install kubernetes-cli
@@ -330,19 +317,6 @@ kubectl port-forward svc/fake-smtp 30001:1080
 
 1. **Open UI**: Go to [http://localhost:3000](http://localhost:3000)
 2. **Create Case**:
-   - Fill in the form
-   - Attach a file (tests `File Service` → `Data Service` connectivity inside K8s)
-   - Submit
-3. **Verify Email**:
-   - Go to [http://localhost:1080](http://localhost:1080)
-   - Check if the "Case Created" email arrived
-
----
-
-### Cleanup
-
-To stop and remove the entire cluster:
-```powershell
 kind delete cluster --name app-cluster
 ```
 

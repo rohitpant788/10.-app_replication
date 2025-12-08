@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: data-service-config
+  labels:
+    app: data-service
+data:
+  SPRING_PROFILES_ACTIVE: "k8s"
+  LOGGING_LEVEL_ROOT: "INFO"
+  SPRING_MAIL_HOST: "fake-smtp"
+  SPRING_MAIL_PORT: "1025"
+  SERVER_PORT: "9090"

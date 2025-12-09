@@ -1,0 +1,14 @@
+{{- if .Values.fileService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.fileService.name }}
+spec:
+  selector:
+    {{- include "app.serviceSelectorLabels" .Values.fileService.name | nindent 4 }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.fileService.port }}
+      targetPort: {{ .Values.fileService.port }}
+  type: {{ .Values.serviceType }}
+{{- end }}

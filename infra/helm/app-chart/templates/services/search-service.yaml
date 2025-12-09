@@ -1,0 +1,14 @@
+{{- if .Values.searchService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.searchService.name }}
+spec:
+  selector:
+    {{- include "app.serviceSelectorLabels" .Values.searchService.name | nindent 4 }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.searchService.port }}
+      targetPort: {{ .Values.searchService.port }}
+  type: {{ .Values.serviceType }}
+{{- end }}

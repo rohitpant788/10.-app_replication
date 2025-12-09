@@ -1,0 +1,24 @@
+{{- if .Values.ui.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.ui.name }}
+  labels:
+    {{- include "app.serviceLabels" .Values.ui.name | nindent 4 }}
+spec:
+  replicas: {{ .Values.ui.replicas }}
+  selector:
+    matchLabels:
+      {{- include "app.serviceSelectorLabels" .Values.ui.name | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "app.serviceSelectorLabels" .Values.ui.name | nindent 8 }}
+    spec:
+      containers:
+      - name: {{ .Values.ui.name }}
+        image: "{{ .Values.ui.image.repository }}:{{ .Values.ui.image.tag }}"
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        ports:
+        - containerPort: {{ .Values.ui.port }}
+{{- end }}

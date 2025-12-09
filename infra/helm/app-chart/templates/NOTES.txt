@@ -1,0 +1,63 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+To access your application:
+
+{{- if .Values.ingress.enabled }}
+
+1. Make sure 'app.local' is in your hosts file:
+   - Windows: C:\Windows\System32\drivers\etc\hosts
+   - Add line: 127.0.0.1 app.local
+
+2. Port-forward the ingress controller (run as Administrator):
+   kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 80:80
+
+3. Access the application:
+   - UI: http://{{ .Values.ingress.host }}
+   {{- if .Values.dataService.enabled }}
+   - Data API: http://{{ .Values.ingress.host }}/data/cases/next-id
+   {{- end }}
+   {{- if .Values.refdataService.enabled }}
+   - RefData API: http://{{ .Values.ingress.host }}/refdata/countries
+   {{- end }}
+   {{- if .Values.searchService.enabled }}
+   - Search API: http://{{ .Values.ingress.host }}/search/cases
+   {{- end }}
+   {{- if .Values.fileService.enabled }}
+   - File API: http://{{ .Values.ingress.host }}/file/*
+   {{- end }}
+
+{{- else }}
+
+Access services directly via kubectl port-forward:
+{{- if .Values.ui.enabled }}
+  kubectl port-forward svc/{{ .Values.ui.name }} {{ .Values.ui.port }}:{{ .Values.ui.port }}
+{{- end }}
+{{- if .Values.dataService.enabled }}
+  kubectl port-forward svc/{{ .Values.dataService.name }} {{ .Values.dataService.port }}:{{ .Values.dataService.port }}
+{{- end }}
+
+{{- end }}
+
+{{- if .Values.fakeSmtp.enabled }}
+
+4. Access Fake SMTP web interface (optional):
+   kubectl port-forward svc/{{ .Values.fakeSmtp.name }} {{ .Values.fakeSmtp.webPort }}:{{ .Values.fakeSmtp.webPort }}
+   Then visit: http://localhost:{{ .Values.fakeSmtp.webPort }}
+
+{{- end }}
+
+To check the status of your deployment:
+  kubectl get all -l app.kubernetes.io/instance={{ .Release.Name }}
+
+To upgrade this release:
+  helm upgrade {{ .Release.Name }} ./app-chart -f ./app-chart/values-local.yaml
+
+To rollback to a previous version:
+  helm rollback {{ .Release.Name }}
+
+To uninstall this release:
+  helm uninstall {{ .Release.Name }}
+
+Happy coding! 🚀

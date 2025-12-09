@@ -1,0 +1,25 @@
+{{- if .Values.fakeSmtp.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.fakeSmtp.name }}
+  labels:
+    {{- include "app.serviceLabels" .Values.fakeSmtp.name | nindent 4 }}
+spec:
+  replicas: {{ .Values.fakeSmtp.replicas }}
+  selector:
+    matchLabels:
+      {{- include "app.serviceSelectorLabels" .Values.fakeSmtp.name | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "app.serviceSelectorLabels" .Values.fakeSmtp.name | nindent 8 }}
+    spec:
+      containers:
+      - name: {{ .Values.fakeSmtp.name }}
+        image: "{{ .Values.fakeSmtp.image.repository }}:{{ .Values.fakeSmtp.image.tag }}"
+        imagePullPolicy: {{ .Values.fakeSmtp.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.fakeSmtp.smtpPort }}  # SMTP port
+        - containerPort: {{ .Values.fakeSmtp.webPort }}  # HTTP web interface
+{{- end }}

@@ -11,9 +11,10 @@ A production-ready, full-stack microservices application demonstrating modern de
 3. [Dockerization](#-dockerization)
 4. [Docker Compose](#-docker-compose)
 5. [Kubernetes Deployment](#-kubernetes-deployment)
-6. [Production Deployment (AWS EKS)](#-production-deployment-aws-eks)
-7. [Troubleshooting](#-troubleshooting)
-8. [Developer FAQ](#-developer-faq)
+6. [Helm Deployment (Recommended)](#-helm-deployment-recommended)
+7. [Production Deployment (AWS EKS)](#-production-deployment-aws-eks)
+8. [Troubleshooting](#-troubleshooting)
+9. [Developer FAQ](#-developer-faq)
 
 ---
 
@@ -86,6 +87,7 @@ This is a case management system built with microservices architecture. Users ca
 **Infrastructure:**
 - Docker & Docker Compose
 - Kubernetes (Kind for local, ready for EKS)
+- Helm (Package manager for Kubernetes)
 - NGINX Ingress Controller
 
 ---
@@ -933,6 +935,308 @@ kubectl exec -it <pod-name> -- sh
 ```bash
 kind delete cluster --name app-cluster
 ```
+
+```
+
+---
+
+## 📦 Helm Deployment (Recommended)
+
+### What is Helm?
+
+Helm is the "package manager" for Kubernetes - think of it like `npm` for Node.js or `apt` for Ubuntu, but for K8s applications.
+
+**Benefits over manual kubectl:**
+- ✅ **One command deployment** instead of 7+ separate `kubectl apply` commands
+- ✅ **Version control** - Track deployment versions and rollback easily
+- ✅ **Environment management** - Switch between dev/staging/prod with different value files
+- ✅ **Templating** - No more hardcoded values scattered across files
+- ✅ **Upgrades & Rollbacks** - Built-in support for safe updates and rollbacks
+
+### Helm Chart Structure
+
+Located at `infra/helm/app-chart/`:
+
+```
+app-chart/
+├── Chart.yaml              # Chart metadata (v1.0.0)
+├── values.yaml            # Base configuration values
+├── values-local.yaml      # Kind cluster overrides
+├── README.md              # Comprehensive Helm documentation
+├── .helmignore           # Files to exclude from packaging
+└── templates/
+    ├── _helpers.tpl      # Reusable template functions
+    ├── NOTES.txt         # Post-installation instructions
+    ├── deployments/      # 6 deployment templates
+    ├── services/         # 6 service templates
+    ├── configmaps/       # ConfigMap templates
+    ├── secrets/          # Secret templates
+    └── ingress/          # Ingress templates
+```
+
+### Prerequisites
+
+```bash
+# Install Helm (if not already installed)
+choco install kubernetes-helm
+
+# Verify installation
+helm version
+```
+
+### Helm Deployment Steps
+
+#### Step 1: Create Kind Cluster & Install Ingress
+
+```bash
+cd infra/k8s
+kind create cluster --config kind-config.yaml --name app-cluster
+
+# Install NGINX Ingress Controller
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+
+# Wait for ingress controller to be ready
+kubectl wait --namespace ingress-nginx \
+  --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=controller \
+  --timeout=120s
+```
+
+#### Step 2: Build and Load Docker Images
+
+```bash
+# Build all images
+docker build -t app-data-service:latest ./data
+docker build -t app-refdata-service:latest ./refdata
+docker build -t app-search-service:latest ./search
+docker build -t app-file-service:latest ./file
+docker build -t app-ui:latest ./ui
+
+# Load into Kind cluster
+kind load docker-image app-data-service:latest --name app-cluster
+kind load docker-image app-refdata-service:latest --name app-cluster
+kind load docker-image app-search-service:latest --name app-cluster
+kind load docker-image app-file-service:latest --name app-cluster
+kind load docker-image app-ui:latest --name app-cluster
+
+# Load fake-smtp
+docker pull reachfive/fake-smtp-server
+kind load docker-image reachfive/fake-smtp-server:latest --name app-cluster
+```
+
+#### Step 3: Configure Database Credentials
+
+Edit `infra/helm/app-chart/values-local.yaml`:
+
+```yaml
+database:
+  url: "jdbc:postgresql://your-neon-db-host/your-database-name"
+  username: "your-username"
+  password: "your-password"
+```
+
+> ⚠️ **Security**: Never commit actual credentials! Consider using `--set` flags for sensitive data.
+
+#### Step 4: Install the Helm Chart
+
+```bash
+# Navigate to helm directory
+cd infra/helm
+
+# Install with local values
+helm install app ./app-chart -f ./app-chart/values-local.yaml
+
+# Watch deployment
+kubectl get pods -w
+```
+
+**Expected output:**
+```
+NAME                               READY   STATUS    RESTARTS   AGE
+data-service-xxx                   1/1     Running   0          30s
+refdata-service-xxx                1/1     Running   0          30s
+search-service-xxx                 1/1     Running   0          30s
+file-service-xxx                   1/1     Running   0          30s
+ui-xxx                             1/1     Running   0          30s
+fake-smtp-xxx                      1/1     Running   0          30s
+
+Release "app" has been installed. Happy Helming!
+```
+
+#### Step 5: Access the Application
+
+**Add to hosts file** (`C:\Windows\System32\drivers\etc\hosts`):
+```
+127.0.0.1 app.local
+```
+
+**Start ingress port-forward** (Run as Administrator):
+```powershell
+kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 80:80
+```
+
+**Access application:**
+- **UI**: http://app.local
+- **Data API**: http://app.local/data/cases/next-id
+- **RefData API**: http://app.local/refdata/countries
+- **Search API**: http://app.local/search/cases
+- **Fake SMTP Web UI**: 
+  ```bash
+  kubectl port-forward svc/fake-smtp 30001:1080
+  # Then visit: http://localhost:30001
+  ```
+
+### Common Helm Operations
+
+#### Upgrade After Changes
+
+```bash
+# Modify values in values-local.yaml, then upgrade
+helm upgrade app ./app-chart -f ./app-chart/values-local.yaml
+
+# Preview changes before upgrading (dry run)
+helm upgrade app ./app-chart -f ./app-chart/values-local.yaml --dry-run --debug
+```
+
+#### Rollback to Previous Version
+
+```bash
+# View release history
+helm history app
+
+# Rollback to previous version
+helm rollback app
+
+# Rollback to specific revision
+helm rollback app 2
+```
+
+#### Check Helm Release Status
+
+```bash
+# List all Helm releases
+helm list
+
+# Get release status
+helm status app
+
+# Get release values
+helm get values app
+```
+
+#### Uninstall Release
+
+```bash
+# Remove all resources created by Helm
+helm uninstall app
+
+# Keep release history for future reference
+helm uninstall app --keep-history
+```
+
+### Configuration via Values
+
+#### Enabling/Disabling Services
+
+```yaml
+# In values-local.yaml
+fakeSmtp:
+  enabled: false  # Disable fake SMTP if using real SMTP
+
+searchService:
+  enabled: false  # Disable search service if not needed
+```
+
+#### Scaling Services
+
+```yaml
+# In values-local.yaml
+dataService:
+  replicas: 3  # Scale to 3 instances
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+```
+
+#### Using Custom Database Values
+
+**Option 1: Edit values-local.yaml**
+```yaml
+database:
+  url: "jdbc:postgresql://prod-db.aws/appdb"
+  username: "prod-user"
+  password: "secure-password"
+```
+
+**Option 2: Use --set flags** (more secure)
+```bash
+helm install app ./app-chart -f ./app-chart/values-local.yaml \
+  --set database.url="jdbc:postgresql://prod-db/appdb" \
+  --set database.username="user" \
+  --set database.password="secure-pass"
+```
+
+### Comparison: Helm vs Manual kubectl
+
+| Aspect | Manual kubectl | Helm Chart |
+|--------|---------------|------------|
+| **Deployment** | 7+ separate `kubectl apply` commands | Single `helm install` command |
+| **Updates** | Manually edit and re-apply each file | `helm upgrade` with new values |
+| **Rollback** | Manually revert each file | `helm rollback` (automatic) |
+| **Version tracking** | Manual Git tags | Built-in revision history |
+| **Environment switching** | Separate YAML files or manual edits | Values files (values-local.yaml, values-prod.yaml) |
+| **Configuration** | Hardcoded in YAML | Templated with values |
+| **Complexity** | Simple, but repetitive | More setup, but powerful |
+
+### Troubleshooting
+
+#### Template Rendering Errors
+
+```bash
+# Validate chart syntax
+helm lint ./app-chart -f ./app-chart/values-local.yaml
+
+# Preview rendered templates
+helm template app ./app-chart -f ./app-chart/values-local.yaml
+```
+
+#### Deployment Failures
+
+```bash
+# Check pod status
+kubectl get pods
+
+# View pod logs
+kubectl logs <pod-name>
+
+# Describe pod for events
+kubectl describe pod <pod-name>
+
+# Check Helm release status
+helm status app
+```
+
+#### Database Connection Issues
+
+```bash
+# Verify secret created correctly
+kubectl get secret db-credentials -o yaml
+
+# Check environment variables in pod
+kubectl exec -it <pod-name> -- env | grep DATABASE
+```
+
+### For More Details
+
+See the comprehensive Helm chart documentation:
+- **Chart README**: `infra/helm/app-chart/README.md` - Detailed configuration guide
+- **Implementation Plan**: Conversion details and design decisions
+- **Walkthrough**: Complete validation and testing results
 
 ---
 

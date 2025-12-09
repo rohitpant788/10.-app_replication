@@ -1,0 +1,46 @@
+---
+# Source: app/templates/ingress/backend-ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-backend-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: app.local
+    http:
+      paths:
+      # Data Service - /data/* → data-service:9090/data/*
+      - path: /data
+        pathType: Prefix
+        backend:
+          service:
+            name: data-service
+            port:
+              number: 9090
+      # RefData Service - /refdata/* → refdata-service:9092/refdata/*
+      - path: /refdata
+        pathType: Prefix
+        backend:
+          service:
+            name: refdata-service
+            port:
+              number: 9092
+      # Search Service - /search/* → search-service:9093/search/*
+      - path: /search
+        pathType: Prefix
+        backend:
+          service:
+            name: search-service
+            port:
+              number: 9093
+      # File Service - /file/* → file-service:9091/file/*
+      - path: /file
+        pathType: Prefix
+        backend:
+          service:
+            name: file-service
+            port:
+              number: 9091

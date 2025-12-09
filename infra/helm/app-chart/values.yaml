@@ -1,0 +1,180 @@
+# Default values for app chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global settings
+global:
+  appName: app
+
+# Image pull policy
+imagePullPolicy: IfNotPresent
+
+# Database configuration (override in values-local.yaml or via --set)
+database:
+  url: ""
+  username: ""
+  password: ""
+
+# Data Service configuration
+dataService:
+  enabled: true
+  name: data-service
+  image:
+    repository: app-data-service
+    tag: latest
+  port: 9090
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    maxSurge: 1
+    maxUnavailable: 0
+  env:
+    springProfilesActive: k8s
+    loggingLevel: INFO
+    mailHost: fake-smtp
+    mailPort: 1025
+  healthProbes:
+    enabled: true
+    liveness:
+      path: /actuator/health/liveness
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readiness:
+      path: /actuator/health/readiness
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# RefData Service configuration
+refdataService:
+  enabled: true
+  name: refdata-service
+  image:
+    repository: app-refdata-service
+    tag: latest
+  port: 9092
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    maxSurge: 1
+    maxUnavailable: 0
+  env:
+    springProfilesActive: k8s
+    loggingLevel: INFO
+  healthProbes:
+    enabled: false  # Actuator endpoints not working
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# Search Service configuration
+searchService:
+  enabled: true
+  name: search-service
+  image:
+    repository: app-search-service
+    tag: latest
+  port: 9093
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    maxSurge: 1
+    maxUnavailable: 0
+  env:
+    springProfilesActive: k8s
+    loggingLevel: INFO
+  healthProbes:
+    enabled: false  # Actuator endpoints not working
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# File Service configuration
+fileService:
+  enabled: true
+  name: file-service
+  image:
+    repository: app-file-service
+    tag: latest
+  port: 9091
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    maxSurge: 1
+    maxUnavailable: 0
+  env:
+    springProfilesActive: k8s
+    loggingLevel: INFO
+    dataServiceBaseUrl: http://data-service:9090
+  healthProbes:
+    enabled: false  # Actuator endpoints not working
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# UI Service configuration
+ui:
+  enabled: true
+  name: ui
+  image:
+    repository: app-ui
+    tag: latest
+  port: 80
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# Fake SMTP configuration
+fakeSmtp:
+  enabled: true
+  name: fake-smtp
+  image:
+    repository: reachfive/fake-smtp-server
+    tag: latest
+    pullPolicy: IfNotPresent
+  smtpPort: 1025
+  webPort: 1080
+  replicas: 1
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  host: app.local
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  ui:
+    enabled: true
+  backend:
+    enabled: true
+    useRegex: true
+
+# Service type (ClusterIP for production, can override to NodePort for local)
+serviceType: ClusterIP

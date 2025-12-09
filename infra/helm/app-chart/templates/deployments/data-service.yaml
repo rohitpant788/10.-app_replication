@@ -1,0 +1,92 @@
+{{- if .Values.dataService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.dataService.name }}
+  labels:
+    {{- include "app.serviceLabels" .Values.dataService.name | nindent 4 }}
+spec:
+  replicas: {{ .Values.dataService.replicas }}
+  {{- with .Values.dataService.strategy }}
+  strategy:
+    type: {{ .type }}
+    rollingUpdate:
+      maxSurge: {{ .maxSurge }}
+      maxUnavailable: {{ .maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "app.serviceSelectorLabels" .Values.dataService.name | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "app.serviceSelectorLabels" .Values.dataService.name | nindent 8 }}
+    spec:
+      containers:
+      - name: {{ .Values.dataService.name }}
+        image: "{{ .Values.dataService.image.repository }}:{{ .Values.dataService.image.tag }}"
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        ports:
+        - containerPort: {{ .Values.dataService.port }}
+          name: http
+        env:
+        # Non-sensitive config from ConfigMap
+        - name: SPRING_PROFILES_ACTIVE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.dataService.name }}-config
+              key: SPRING_PROFILES_ACTIVE
+        - name: LOGGING_LEVEL_ROOT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.dataService.name }}-config
+              key: LOGGING_LEVEL_ROOT
+        - name: SPRING_MAIL_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.dataService.name }}-config
+              key: SPRING_MAIL_HOST
+        - name: SPRING_MAIL_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.dataService.name }}-config
+              key: SPRING_MAIL_PORT
+        # Database credentials from Secret
+        - name: SPRING_DATASOURCE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: DATABASE_URL
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: DATABASE_USERNAME
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: DATABASE_PASSWORD
+        {{- if .Values.dataService.healthProbes.enabled }}
+        # Health probes for K8s
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.dataService.healthProbes.liveness.path }}
+            port: {{ .Values.dataService.port }}
+          initialDelaySeconds: {{ .Values.dataService.healthProbes.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.dataService.healthProbes.liveness.periodSeconds }}
+          timeoutSeconds: {{ .Values.dataService.healthProbes.liveness.timeoutSeconds }}
+          failureThreshold: {{ .Values.dataService.healthProbes.liveness.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.dataService.healthProbes.readiness.path }}
+            port: {{ .Values.dataService.port }}
+          initialDelaySeconds: {{ .Values.dataService.healthProbes.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.dataService.healthProbes.readiness.periodSeconds }}
+          timeoutSeconds: {{ .Values.dataService.healthProbes.readiness.timeoutSeconds }}
+          failureThreshold: {{ .Values.dataService.healthProbes.readiness.failureThreshold }}
+        {{- end }}
+        # Resource limits
+        resources:
+          {{- toYaml .Values.dataService.resources | nindent 10 }}
+{{- end }}

@@ -1,0 +1,54 @@
+{{- if .Values.dataService.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.dataService.name }}-config
+  labels:
+    {{- include "app.serviceLabels" .Values.dataService.name | nindent 4 }}
+data:
+  SPRING_PROFILES_ACTIVE: {{ .Values.dataService.env.springProfilesActive | quote }}
+  LOGGING_LEVEL_ROOT: {{ .Values.dataService.env.loggingLevel | quote }}
+  SPRING_MAIL_HOST: {{ .Values.dataService.env.mailHost | quote }}
+  SPRING_MAIL_PORT: {{ .Values.dataService.env.mailPort | quote }}
+  SERVER_PORT: {{ .Values.dataService.port | quote }}
+{{- end }}
+---
+{{- if .Values.refdataService.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.refdataService.name }}-config
+  labels:
+    {{- include "app.serviceLabels" .Values.refdataService.name | nindent 4 }}
+data:
+  SPRING_PROFILES_ACTIVE: {{ .Values.refdataService.env.springProfilesActive | quote }}
+  LOGGING_LEVEL_ROOT: {{ .Values.refdataService.env.loggingLevel | quote }}
+  SERVER_PORT: {{ .Values.refdataService.port | quote }}
+{{- end }}
+---
+{{- if .Values.searchService.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.searchService.name }}-config
+  labels:
+    {{- include "app.serviceLabels" .Values.searchService.name | nindent 4 }}
+data:
+  SPRING_PROFILES_ACTIVE: {{ .Values.searchService.env.springProfilesActive | quote }}
+  LOGGING_LEVEL_ROOT: {{ .Values.searchService.env.loggingLevel | quote }}
+  SERVER_PORT: {{ .Values.searchService.port | quote }}
+{{- end }}
+---
+{{- if .Values.fileService.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.fileService.name }}-config
+  labels:
+    {{- include "app.serviceLabels" .Values.fileService.name | nindent 4 }}
+data:
+  SPRING_PROFILES_ACTIVE: {{ .Values.fileService.env.springProfilesActive | quote }}
+  LOGGING_LEVEL_ROOT: {{ .Values.fileService.env.loggingLevel | quote }}
+  SERVER_PORT: {{ .Values.fileService.port | quote }}
+  DATA_SERVICE_BASE-URL: {{ .Values.fileService.env.dataServiceBaseUrl | quote }}
+{{- end }}

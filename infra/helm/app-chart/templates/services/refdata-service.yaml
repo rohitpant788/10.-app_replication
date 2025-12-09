@@ -1,0 +1,14 @@
+{{- if .Values.refdataService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.refdataService.name }}
+spec:
+  selector:
+    {{- include "app.serviceSelectorLabels" .Values.refdataService.name | nindent 4 }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.refdataService.port }}
+      targetPort: {{ .Values.refdataService.port }}
+  type: {{ .Values.serviceType }}
+{{- end }}

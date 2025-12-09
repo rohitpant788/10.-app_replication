@@ -1,0 +1,14 @@
+---
+# Source: app/templates/services/refdata-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: refdata-service
+spec:
+  selector:
+    app: refdata-service
+  ports:
+    - protocol: TCP
+      port: 9092
+      targetPort: 9092
+  type: ClusterIP

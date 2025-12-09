@@ -1,0 +1,14 @@
+{{- if .Values.ui.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.ui.name }}
+spec:
+  selector:
+    {{- include "app.serviceSelectorLabels" .Values.ui.name | nindent 4 }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.ui.port }}
+      targetPort: {{ .Values.ui.port }}
+  type: {{ .Values.serviceType }}
+{{- end }}

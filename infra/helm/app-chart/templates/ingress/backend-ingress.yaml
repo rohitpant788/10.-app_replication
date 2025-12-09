@@ -1,0 +1,59 @@
+{{- if and .Values.ingress.enabled .Values.ingress.backend.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.global.appName }}-backend-ingress
+  annotations:
+    {{- if .Values.ingress.backend.useRegex }}
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+  - host: {{ .Values.ingress.host }}
+    http:
+      paths:
+      {{- if .Values.dataService.enabled }}
+      # Data Service - /data/* → data-service:{{ .Values.dataService.port }}/data/*
+      - path: /data
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.dataService.name }}
+            port:
+              number: {{ .Values.dataService.port }}
+      {{- end }}
+      
+      {{- if .Values.refdataService.enabled }}
+      # RefData Service - /refdata/* → refdata-service:{{ .Values.refdataService.port }}/refdata/*
+      - path: /refdata
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.refdataService.name }}
+            port:
+              number: {{ .Values.refdataService.port }}
+      {{- end }}
+      
+      {{- if .Values.searchService.enabled }}
+      # Search Service - /search/* → search-service:{{ .Values.searchService.port }}/search/*
+      - path: /search
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.searchService.name }}
+            port:
+              number: {{ .Values.searchService.port }}
+      {{- end }}
+      
+      {{- if .Values.fileService.enabled }}
+      # File Service - /file/* → file-service:{{ .Values.fileService.port }}/file/*
+      - path: /file
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.fileService.name }}
+            port:
+              number: {{ .Values.fileService.port }}
+      {{- end }}
+{{- end }}

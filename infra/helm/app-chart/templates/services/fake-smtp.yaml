@@ -1,0 +1,19 @@
+{{- if .Values.fakeSmtp.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.fakeSmtp.name }}
+spec:
+  selector:
+    {{- include "app.serviceSelectorLabels" .Values.fakeSmtp.name | nindent 4 }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.fakeSmtp.smtpPort }}
+      targetPort: {{ .Values.fakeSmtp.smtpPort }}
+      name: smtp
+    - protocol: TCP
+      port: {{ .Values.fakeSmtp.webPort }}
+      targetPort: {{ .Values.fakeSmtp.webPort }}
+      name: web
+  type: {{ .Values.serviceType }}
+{{- end }}

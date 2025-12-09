@@ -1,0 +1,51 @@
+---
+# Source: app/templates/configmaps/configmaps.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: data-service-config
+  labels:
+    app: data-service
+data:
+  SPRING_PROFILES_ACTIVE: "k8s"
+  LOGGING_LEVEL_ROOT: "INFO"
+  SPRING_MAIL_HOST: "fake-smtp"
+  SPRING_MAIL_PORT: "1025"
+  SERVER_PORT: "9090"
+---
+# Source: app/templates/configmaps/configmaps.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: refdata-service-config
+  labels:
+    app: refdata-service
+data:
+  SPRING_PROFILES_ACTIVE: "k8s"
+  LOGGING_LEVEL_ROOT: "INFO"
+  SERVER_PORT: "9092"
+---
+# Source: app/templates/configmaps/configmaps.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: search-service-config
+  labels:
+    app: search-service
+data:
+  SPRING_PROFILES_ACTIVE: "k8s"
+  LOGGING_LEVEL_ROOT: "INFO"
+  SERVER_PORT: "9093"
+---
+# Source: app/templates/configmaps/configmaps.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: file-service-config
+  labels:
+    app: file-service
+data:
+  SPRING_PROFILES_ACTIVE: "k8s"
+  LOGGING_LEVEL_ROOT: "INFO"
+  SERVER_PORT: "9091"
+  DATA_SERVICE_BASE-URL: "http://data-service:9090"

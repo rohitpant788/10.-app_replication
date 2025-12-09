@@ -1231,6 +1231,522 @@ kubectl get secret db-credentials -o yaml
 kubectl exec -it <pod-name> -- env | grep DATABASE
 ```
 
+### Complete Troubleshooting Guide for Fresher Developers
+
+This section covers real issues encountered during Helm deployment testing and how to resolve them step-by-step.
+
+#### Issue 1: Helm Install Fails with "Secret exists and cannot be imported"
+
+**Error Message:**
+```
+Error: INSTALLATION FAILED: unable to continue with install: Secret "db-credentials" in namespace "default" exists and cannot be imported into the current release: invalid ownership metadata
+```
+
+**What This Means:**
+- You previously deployed using manual `kubectl apply` commands
+- A secret called `db-credentials` already exists
+- Helm requires clean ownership of all resources it manages
+
+**How to Fix:**
+
+**Step 1**: Check if the secret exists
+```powershell
+kubectl get secret db-credentials
+```
+
+**Step 2**: Delete the existing secret
+```powershell
+kubectl delete secret db-credentials
+```
+
+**Step 3**: Retry Helm installation
+```powershell
+cd infra/helm
+helm install app ./app-chart -f ./app-chart/values-local.yaml
+```
+
+#### Issue 2: Helm Install Fails with "Resources already exist"
+
+**What Happened:**
+- You have existing deployments, services, or other resources from manual kubectl deployment
+- Helm cannot take ownership of manually-created resources
+
+**How to Fix - Complete Cleanup:**
+
+**Step 1**: Check what's currently running
+```powershell
+kubectl get all
+```
+
+**Expected Output** (if you have old deployments):
+```
+NAME                                   READY   STATUS    RESTARTS   AGE
+pod/data-service-xxx                   1/1     Running   0          5h
+pod/ui-xxx                             1/1     Running   0          5h
+...
+deployment.apps/data-service           1/1     1         1          5h
+...
+service/data-service                   ClusterIP   10.96.x.x   9090/TCP   5h
+```
+
+**Step 2**: Delete ALL resources (deployments, services, pods)
+```powershell
+kubectl delete all --all
+```
+
+> ⚠️ **Warning**: This deletes EVERYTHING in the default namespace. Make sure you're in the correct cluster!
+
+**Step 3**: Delete ConfigMaps
+```powershell
+kubectl delete configmap --all
+```
+
+**Step 4**: Delete Ingress resources
+```powershell
+kubectl delete ingress --all
+```
+
+**Step 5**: Delete Secrets
+```powershell
+kubectl delete secret db-credentials
+```
+
+**Step 6**: Verify namespace is clean
+```powershell
+kubectl get all
+```
+
+**Expected Output** (clean namespace):
+```
+NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   1d
+```
+
+Only the default `kubernetes` service should remain.
+
+**Step 7**: Now install with Helm
+```powershell
+cd infra/helm
+helm install app ./app-chart -f ./app-chart/values-local.yaml
+```
+
+#### Issue 3: No Kind Cluster Running
+
+**Error:**
+```
+The connection to the server localhost:8080 was refused
+```
+
+**How to Fix:**
+
+**Step 1**: Check if Kind cluster exists
+```powershell
+kind get clusters
+```
+
+**Expected Output** (if cluster exists):
+```
+app-cluster
+```
+
+**If no cluster exists**, create one:
+```powershell
+cd infra/k8s
+kind create cluster --config kind-config.yaml --name app-cluster
+```
+
+**Step 2**: Verify kubectl is connected to the right cluster
+```powershell
+kubectl config current-context
+```
+
+**Expected Output**:
+```
+kind-app-cluster
+```
+
+**Step 3**: Check cluster nodes are ready
+```powershell
+kubectl get nodes
+```
+
+**Expected Output**:
+```
+NAME                        STATUS   ROLES           AGE   VERSION
+app-cluster-control-plane   Ready    control-plane   1h    v1.33.1
+app-cluster-worker          Ready    <none>          1h    v1.33.1
+app-cluster-worker2         Ready    <none>          1h    v1.33.1
+```
+
+#### Issue 4: Docker Images Not Found in Kind
+
+**Error in Pod:**
+```
+Failed to pull image "app-data-service:latest": image not found
+```
+
+**How to Fix:**
+
+**Step 1**: Check if Docker images are built locally
+```powershell
+docker images --filter "reference=app-*"
+```
+
+**Expected Output**:
+```
+REPOSITORY            TAG       IMAGE ID       CREATED        SIZE
+app-data-service      latest    b568ce5f06a8   2 hours ago    402MB
+app-refdata-service   latest    11b8cf3aea31   2 hours ago    397MB
+app-search-service    latest    3bd9f89b90e9   2 hours ago    385MB
+app-file-service      latest    50e8b1aa5f36   2 hours ago    443MB
+app-ui                latest    5f3998228023   2 hours ago    80.1MB
+```
+
+**If images are missing**, build them:
+```powershell
+docker build -t app-data-service:latest ./data
+docker build -t app-refdata-service:latest ./refdata
+docker build -t app-search-service:latest ./search
+docker build -t app-file-service:latest ./file
+docker build -t app-ui:latest ./ui
+```
+
+**Step 2**: Load images into Kind cluster
+```powershell
+kind load docker-image app-data-service:latest --name app-cluster
+kind load docker-image app-refdata-service:latest --name app-cluster
+kind load docker-image app-search-service:latest --name app-cluster
+kind load docker-image app-file-service:latest --name app-cluster
+kind load docker-image app-ui:latest --name app-cluster
+```
+
+**Step 3**: Verify images are loaded
+```powershell
+docker exec -it app-cluster-control-plane crictl images | grep app-
+```
+
+#### Issue 5: Ingress Controller Not Installed
+
+**Symptom**: Ingress resources created but not working
+
+**How to Fix:**
+
+**Step 1**: Check if ingress controller is running
+```powershell
+kubectl get pods -n ingress-nginx
+```
+
+**Expected Output** (if installed):
+```
+NAME                                        READY   STATUS    RESTARTS   AGE
+ingress-nginx-controller-86f7c48984-dmzzr   1/1     Running   0          1h
+```
+
+**If nothing shows**, install ingress controller:
+```powershell
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+```
+
+**Step 2**: Wait for ingress controller to be ready
+```powershell
+kubectl wait --namespace ingress-nginx \
+  --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=controller \
+  --timeout=120s
+```
+
+#### Issue 6: Pods Not Starting (Pending State)
+
+**How to Debug:**
+
+**Step 1**: Check pod status
+```powershell
+kubectl get pods
+```
+
+**If you see:**
+```
+NAME                     READY   STATUS    RESTARTS   AGE
+data-service-xxx         0/1     Pending   0          2m
+```
+
+**Step 2**: Describe the pod to see why it's pending
+```powershell
+kubectl describe pod data-service-xxx
+```
+
+**Common Causes:**
+1. **No nodes available**: Check `kubectl get nodes`
+2. **Resource limits too high**: Pods can't fit on nodes
+3. **Image pull errors**: Images not loaded into Kind
+
+#### Issue 7: Pods Crashing or CrashLoopBackOff
+
+**How to Debug:**
+
+**Step 1**: Check pod logs
+```powershell
+kubectl logs data-service-74d84894f5-4nrcz
+```
+
+**Step 2**: If pod is restarting, see previous logs
+```powershell
+kubectl logs data-service-74d84894f5-4nrcz --previous
+```
+
+**Common Issues:**
+1. **Database connection failure**: Check database credentials in values-local.yaml
+2. **Missing environment variables**: Verify ConfigMap is loaded
+3. **Application errors**: Check Spring Boot logs for Java exceptions
+
+**Step 3**: Check events for the pod
+```powershell
+kubectl describe pod data-service-74d84894f5-4nrcz
+```
+
+Look at the "Events" section at the bottom.
+
+#### Issue 8: Database Connection Errors
+
+**Error in Logs:**
+```
+Cannot create PoolableConnectionFactory (The connection attempt failed.)
+```
+
+**How to Fix:**
+
+**Step 1**: Verify database credentials in values-local.yaml
+```yaml
+database:
+  url: "jdbc:postgresql://YOUR-CORRECT-HOST/neondb?sslmode=require"
+  username: "YOUR-USERNAME"
+  password: "YOUR-PASSWORD"
+```
+
+**Step 2**: Check if secret was created with correct values
+```powershell
+kubectl get secret db-credentials -o yaml
+```
+
+**Step 3**: Decode and verify secret contents
+```powershell
+# On Windows PowerShell
+kubectl get secret db-credentials -o jsonpath='{.data.DATABASE_URL}' | ForEach-Object { [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_)) }
+```
+
+**Step 4**: If credentials are wrong, update values-local.yaml and upgrade
+```powershell
+# Fix values-local.yaml, then:
+helm upgrade app ./app-chart -f ./app-chart/values-local.yaml
+```
+
+#### Useful Debugging Commands
+
+**Check Helm Release Status:**
+```powershell
+# List all releases
+helm list
+
+# Get detailed status
+helm status app
+
+# See what values were used
+helm get values app
+
+# See all computed values
+helm get values app --all
+
+# View release history
+helm history app
+```
+
+**Check All Resources Created by Helm:**
+```powershell
+kubectl get all -l app.kubernetes.io/instance=app
+```
+
+**Watch Pods Starting:**
+```powershell
+kubectl get pods -w
+```
+Press `Ctrl+C` to stop watching.
+
+**Check ConfigMaps:**
+```powershell
+# List all ConfigMaps
+kubectl get configmaps
+
+# View ConfigMap contents
+kubectl describe configmap data-service-config
+```
+
+**Check Services:**
+```powershell
+# List services
+kubectl get svc
+
+# Describe service to see endpoints
+kubectl describe svc data-service
+```
+
+**Test Service Connectivity from Inside Cluster:**
+```powershell
+# Start a temporary pod
+kubectl run test-pod --image=curlimages/curl:latest --rm -it -- sh
+
+# Inside the pod, test service
+curl http://data-service:9090/data/cases/next-id
+```
+
+**Check Ingress Resources:**
+```powershell
+# List ingress
+kubectl get ingress
+
+# Describe ingress
+kubectl describe ingress app-backend-ingress
+```
+
+#### Complete Fresh Installation Checklist
+
+Use this checklist for a clean Helm deployment:
+
+**Prerequisites:**
+- [ ] Docker Desktop running
+- [ ] Kind cluster created and running
+- [ ] NGINX Ingress Controller installed
+- [ ] Docker images built locally
+- [ ] Docker images loaded into Kind cluster
+- [ ] Database credentials configured in values-local.yaml
+
+**Installation Steps:**
+```powershell
+# 1. Verify cluster is ready
+kubectl get nodes
+
+# 2. Verify ingress controller is running
+kubectl get pods -n ingress-nginx
+
+# 3. Verify no conflicting resources exist
+kubectl get all
+kubectl get configmap
+kubectl get secret
+kubectl get ingress
+
+# 4. If conflicts exist, clean them up:
+kubectl delete all --all
+kubectl delete configmap --all
+kubectl delete ingress --all
+kubectl delete secret db-credentials
+
+# 5. Navigate to helm directory
+cd f:\10. app_replication\infra\helm
+
+# 6. Install Helm chart
+helm install app ./app-chart -f ./app-chart/values-local.yaml
+
+# 7. Watch pods start
+kubectl get pods -w
+
+# 8. Verify all pods are running (wait up to 2 minutes)
+kubectl get pods
+
+# 9. Check Helm release status
+helm status app
+
+# 10. Verify services created
+kubectl get svc
+
+# 11. Verify ingress created
+kubectl get ingress
+```
+
+**Expected Timeline:**
+- Helm install completes: ~10 seconds
+- Pods start appearing: ~5 seconds
+- All pods running (1/1): ~30-60 seconds
+
+**Success Criteria:**
+```powershell
+kubectl get pods
+```
+
+**Should show:**
+```
+NAME                               READY   STATUS    RESTARTS   AGE
+data-service-xxx                   1/1     Running   0          1m
+refdata-service-xxx                1/1     Running   0          1m
+search-service-xxx                 1/1     Running   0          1m
+file-service-xxx                   1/1     Running   0          1m
+ui-xxx                             1/1     Running   0          1m
+fake-smtp-xxx                      1/1     Running   0          1m
+```
+
+All pods should show:
+- **READY**: 1/1
+- **STATUS**: Running
+- **RESTARTS**: 0 (or low number)
+
+#### What to Do If Things Go Wrong
+
+**Nuclear Option - Complete Reset:**
+
+If nothing works, start completely fresh:
+
+```powershell
+# 1. Delete Helm release
+helm uninstall app
+
+# 2. Delete Kind cluster
+kind delete cluster --name app-cluster
+
+# 3. Recreate cluster
+cd f:\10. app_replication\infra\k8s
+kind create cluster --config kind-config.yaml --name app-cluster
+
+# 4. Install ingress controller
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+
+# 5. Wait for ingress to be ready
+kubectl wait --namespace ingress-nginx \
+  --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=controller \
+  --timeout=120s
+
+# 6. Rebuild and load images
+docker build -t app-data-service:latest ./data
+docker build -t app-refdata-service:latest ./refdata
+docker build -t app-search-service:latest ./search
+docker build -t app-file-service:latest ./file
+docker build -t app-ui:latest ./ui
+
+kind load docker-image app-data-service:latest --name app-cluster
+kind load docker-image app-refdata-service:latest --name app-cluster
+kind load docker-image app-search-service:latest --name app-cluster
+kind load docker-image app-file-service:latest --name app-cluster
+kind load docker-image app-ui:latest --name app-cluster
+
+docker pull reachfive/fake-smtp-server
+kind load docker-image reachfive/fake-smtp-server:latest --name app-cluster
+
+# 7. Install Helm chart
+cd f:\10. app_replication\infra\helm
+helm install app ./app-chart -f ./app-chart/values-local.yaml
+
+# 8. Watch deployment
+kubectl get pods -w
+```
+
+#### Getting Help
+
+If you're still stuck:
+
+1. **Check pod logs** for specific error messages
+2. **Describe the pod** to see Kubernetes events
+3. **Verify prerequisites** checklist above
+4. **Check Helm chart documentation**: `infra/helm/app-chart/README.md`
+5. **Review test results**: See artifacts for successful deployment example
+
 ### For More Details
 
 See the comprehensive Helm chart documentation:

@@ -1,6 +1,6 @@
 # APP Replication - Microservices Application
 
-A production-ready, full-stack microservices application demonstrating modern development practices from local development through containerization to Kubernetes deployment.
+A production-ready, full-stack microservices application demonstrating modern development practices from local development through containerization to Kubernetes deployment with Helm and HTTPS/SSL support.
 
 ---
 
@@ -1085,6 +1085,373 @@ kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 80:80
   kubectl port-forward svc/fake-smtp 30001:1080
   # Then visit: http://localhost:30001
   ```
+
+### Enabling HTTPS (Optional)
+
+To access your application via `https://app.local` instead of `http://app.local`, follow these steps:
+
+#### Step 1: Generate Self-Signed SSL Certificate
+
+```bash
+# Navigate to ingress directory
+cd f:\10. app_replication\infra\k8s\ingress
+
+# Generate certificate (valid for 1 year)
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout tls.key -out tls.crt \
+  -subj "/CN=app.local/O=app-local" \
+  -addext "subjectAltName=DNS:app.local,DNS:*.app.local"
+```
+
+> 💡 **Tip**: If you don't have OpenSSL, it comes with Git Bash on Windows.
+
+#### Step 2: Create Kubernetes TLS Secret
+
+```powershell
+kubectl create secret tls app-tls-secret --cert=tls.crt --key=tls.key
+```
+
+#### Step 3: Enable TLS in Helm Values
+
+Edit `infra/helm/app-chart/values-local.yaml` and uncomment these lines:
+
+```yaml
+# Enable HTTPS/TLS (uncomment to enable)
+ingress:
+  tls:
+    enabled: true
+    secretName: app-tls-secret
+```
+
+#### Step 4: Upgrade Helm Release
+
+```powershell
+cd f:\10. app_replication\infra\helm
+helm upgrade app ./app-chart -f ./app-chart/values-local.yaml
+```
+
+#### Step 5: Port-Forward with HTTPS Support
+
+```powershell
+# Include port 443 for HTTPS (run as Administrator)
+kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 80:80 443:443
+```
+
+#### Step 6: Access via HTTPS
+
+- **HTTPS**: https://app.local
+- **Data API**: https://app.local/data/cases/next-id
+- **RefData API**: https://app.local/refdata/countries
+- **Search API**: https://app.local/search/cases
+
+**Browser Security Warning:**
+
+Since we're using a self-signed certificate, your browser will show a security warning. This is normal for development.
+
+Click **"Advanced" → "Proceed to app.local (unsafe)"**
+
+**To Remove Warning (Optional):**
+
+Import certificate as trusted (run PowerShell as Administrator):
+
+```powershell
+Import-Certificate -FilePath "f:\10. app_replication\infra\k8s\ingress\tls.crt" -CertStoreLocation Cert:\LocalMachine\Root
+```
+
+Restart your browser after importing.
+
+> 📚 **For detailed HTTPS documentation**, see `infra/k8s/ingress/HTTPS-SETUP-GUIDE.md`
+
+#### HTTPS Troubleshooting Guide
+
+This section covers real issues encountered during HTTPS setup and how to resolve them.
+
+##### Issue 1: Helm Template Parse Error
+
+**Error Message:**
+```
+Error: INSTALLATION FAILED: parse error at (app/templates/NOTES.txt:53): expected end; found {{else}}
+```
+
+**What This Means:**
+- Missing `{{- end }}` tag in a Helm template
+- Template syntax error preventing installation
+
+**How to Fix:**
+
+**Step 1**: Validate your Helm chart
+```powershell
+cd infra/helm
+helm lint .\app-chart
+```
+
+**Step 2**: Check NOTES.txt for matching tags
+- Ensure every `{{- if }}` has a matching `{{- end }}`
+- Count opening and closing tags - they must match
+
+**Step 3**: Fix and retry
+```powershell
+# After fixing template
+helm lint .\app-chart
+helm install app .\app-chart -f .\app-chart\values-local.yaml
+```
+
+##### Issue 2: Port 80 Already in Use
+
+**Error Message:**
+```
+Unable to listen on port 80: bind: Only one usage of each socket address is normally permitted
+```
+
+**What This Means:**
+- Another process is using port 80
+- Usually a previous kubectl port-forward session
+
+**How to Fix:**
+
+**Option 1: Use Alternate Ports**
+```powershell
+# Forward to different local ports
+kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8080:80 8443:443
+```
+
+**Access via:**
+- HTTPS: https://app.local:8443
+- HTTP: http://app.local:8080
+
+**Option 2: Kill Process Using Port 80**
+
+**Step 1**: Find process using port 80
+```powershell
+netstat -ano | findstr :80
+```
+
+**Output example:**
+```
+TCP    127.0.0.1:80    0.0.0.0:0    LISTENING    27876
+```
+
+**Step 2**: Kill the process
+```powershell
+taskkill /PID 27876 /F
+```
+
+**Step 3**: Retry with standard ports
+```powershell
+kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 80:80 443:443
+```
+
+##### Issue 3: All Pods Missing After Helm Upgrade
+
+**Symptom:**
+```powershell
+kubectl get pods
+# No resources found in default namespace
+```
+
+**What This Means:**
+- Helm release was accidentally uninstalled
+- All deployments, services deleted
+- TLS secret might still exist
+
+**How to Fix:**
+
+**Step 1**: Check if Helm release exists
+```powershell
+helm list
+```
+
+**If empty**, release was deleted.
+
+**Step 2**: Verify TLS secret still exists
+```powershell
+kubectl get secret app-tls-secret
+```
+
+**If TLS secret exists**, you can skip certificate generation.
+
+**Step 3**: Reinstall Helm chart
+```powershell
+cd infra/helm
+helm install app .\app-chart -f .\app-chart\values-local.yaml
+```
+
+**Step 4**: Wait for pods to start
+```powershell
+kubectl get pods -w
+# Wait until all show 1/1 READY
+```
+
+##### Issue 4: 404 Not Found on HTTPS
+
+**Symptom:**
+- Browser connects to https://app.local
+- Gets "404 Not Found" from nginx
+
+**Possible Causes & Solutions:**
+
+**Cause 1: Pods Not Running**
+```powershell
+# Check pod status
+kubectl get pods
+
+# If pods are not running, check logs
+kubectl describe pod ui-<pod-id>
+kubectl logs ui-<pod-id>
+```
+
+**Cause 2: Ingress Not Configured**
+```powershell
+# Verify ingress has TLS configured
+kubectl describe ingress app-ui-ingress
+
+# Should show:
+# TLS:
+#   app-tls-secret terminates app.local
+```
+
+**If TLS section is missing**, check `values-local.yaml`:
+```yaml
+ingress:
+  tls:
+    enabled: true    # Must be true
+    secretName: app-tls-secret
+```
+
+**Cause 3: Wrong Port-Forward**
+```powershell
+# Ensure port-forwarding includes port 443
+kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 80:80 443:443
+# NOT just: kubectl port-forward ... 80:80
+```
+
+##### Issue 5: OpenSSL Not Found
+
+**Error:**
+```
+openssl: The term 'openssl' is not recognized
+```
+
+**Solution: Use Git's OpenSSL**
+
+Git for Windows includes OpenSSL:
+
+```powershell
+# Use full path to Git's OpenSSL
+& "C:\Program Files\Git\usr\bin\openssl.exe" req -x509 -nodes -days 365 -newkey rsa:2048 `
+  -keyout tls.key -out tls.crt `
+  -subj "/CN=app.local/O=app-local" `
+  -addext "subjectAltName=DNS:app.local,DNS:*.app.local"
+```
+
+**Or use PowerShell's built-in certificate**:
+```powershell
+$cert = New-SelfSignedCertificate -DnsName "app.local", "*.app.local" `
+  -CertStoreLocation "cert:\CurrentUser\My" `
+  -NotAfter (Get-Date).AddYears(1)
+
+# Export for Kubernetes
+$pwd = ConvertTo-SecureString -String "temp" -Force -AsPlainText
+Export-PfxCertificate -Cert $cert -FilePath "app.local.pfx" -Password $pwd
+```
+
+Then convert PFX to PEM using Git's OpenSSL.
+
+##### Issue 6: Browser Shows ERR_SSL_PROTOCOL_ERROR
+
+**Symptom:**
+- Browser can't establish secure connection
+- ERR_SSL_PROTOCOL_ERROR instead of certificate warning
+
+**Possible Causes:**
+
+**Cause 1: Port 443 Not Forwarded**
+```powershell
+# Check your port-forward command includes 443
+kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 80:80 443:443
+#                                                                          ^^^^^^ Important!
+```
+
+**Cause 2: TLS Secret Not Created**
+```powershell
+# Verify secret exists
+kubectl get secret app-tls-secret
+
+# If missing, recreate it
+cd f:\10. app_replication\infra\k8s\ingress
+kubectl create secret tls app-tls-secret --cert=tls.crt --key=tls.key
+```
+
+**Cause 3: Ingress Controller Not Running**
+```powershell
+# Check ingress controller status
+kubectl get pods -n ingress-nginx
+
+# Should show:
+# ingress-nginx-controller-xxx   1/1   Running
+```
+
+##### Complete Verification Checklist
+
+Use this checklist to verify HTTPS is working:
+
+```powershell
+# 1. Check TLS secret exists
+kubectl get secret app-tls-secret
+# Expected: TYPE = kubernetes.io/tls
+
+# 2. Check all pods running
+kubectl get pods
+# Expected: All 6 pods showing 1/1 READY
+
+# 3. Check ingress has TLS configured
+kubectl describe ingress app-ui-ingress | Select-String "TLS"
+# Expected: app-tls-secret terminates app.local
+
+# 4. Check ingress ports
+kubectl get ingress
+# Expected: PORTS = 80, 443
+
+# 5. Verify port-forward is active
+netstat -ano | findstr "443"
+# Expected: Shows listening on port 443 (or 8443 if using alternate)
+
+# 6. Test HTTPS connection
+curl -k https://app.local
+# Expected: HTML response from UI (not 404)
+```
+
+##### Getting More Help
+
+If you're still stuck after trying the above:
+
+1. **Check Helm chart logs**:
+   ```powershell
+   helm status app
+   helm get values app
+   ```
+
+2. **Check pod logs**:
+   ```powershell
+   kubectl logs deployment/ui
+   kubectl logs deployment/data-service
+   ```
+
+3. **Check ingress controller logs**:
+   ```powershell
+   kubectl logs -n ingress-nginx deployment/ingress-nginx-controller
+   ```
+
+4. **Verify certificate validity**:
+   ```powershell
+   & "C:\Program Files\Git\usr\bin\openssl.exe" x509 -in tls.crt -text -noout
+   # Check "Not After" date
+   ```
+
+5. **Review detailed guides**:
+   - `infra/k8s/ingress/HTTPS-SETUP-GUIDE.md` - Complete setup guide
+   - `infra/k8s/ingress/HTTPS-QUICKSTART.md` - Quick commands
+   - Troubleshooting artifacts in conversation history
 
 ### Common Helm Operations
 

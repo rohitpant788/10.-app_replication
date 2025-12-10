@@ -1,0 +1,8 @@
+# Add these lines to your .gitignore to prevent committing SSL certificates
+
+# SSL/TLS Certificates (never commit private keys!)
+*.key
+*.crt
+*.pem
+*.csr
+tls.*

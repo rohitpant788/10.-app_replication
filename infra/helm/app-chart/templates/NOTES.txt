@@ -11,9 +11,31 @@ To access your application:
    - Add line: 127.0.0.1 app.local
 
 2. Port-forward the ingress controller (run as Administrator):
+{{- if .Values.ingress.tls.enabled }}
+   kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 80:80 443:443
+{{- else }}
    kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 80:80
+{{- end }}
 
 3. Access the application:
+{{- if .Values.ingress.tls.enabled }}
+   - UI: https://{{ .Values.ingress.host }} (HTTPS enabled!)
+   {{- if .Values.dataService.enabled }}
+   - Data API: https://{{ .Values.ingress.host }}/data/cases/next-id
+   {{- end }}
+   {{- if .Values.refdataService.enabled }}
+   - RefData API: https://{{ .Values.ingress.host }}/refdata/countries
+   {{- end }}
+   {{- if .Values.searchService.enabled }}
+   - Search API: https://{{ .Values.ingress.host }}/search/cases
+   {{- end }}
+   {{- if .Values.fileService.enabled }}
+   - File API: https://{{ .Values.ingress.host }}/file/*
+   {{- end }}
+   
+   Note: You may see a browser security warning for self-signed certificates.
+   Click "Advanced" → "Proceed to {{ .Values.ingress.host }}" to continue.
+{{- else }}
    - UI: http://{{ .Values.ingress.host }}
    {{- if .Values.dataService.enabled }}
    - Data API: http://{{ .Values.ingress.host }}/data/cases/next-id
@@ -27,6 +49,7 @@ To access your application:
    {{- if .Values.fileService.enabled }}
    - File API: http://{{ .Values.ingress.host }}/file/*
    {{- end }}
+{{- end }}
 
 {{- else }}
 

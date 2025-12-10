@@ -170,6 +170,10 @@ ingress:
   host: app.local
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+  # TLS/HTTPS configuration
+  tls:
+    enabled: false  # Set to true to enable HTTPS
+    secretName: app-tls-secret  # Name of the TLS secret containing certificates
   ui:
     enabled: true
   backend:

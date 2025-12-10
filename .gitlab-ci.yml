@@ -1,0 +1,387 @@
+# GitLab CI/CD Pipeline for Microservices Application
+# This pipeline builds, tests, and deploys all 5 microservices to Kind cluster
+
+variables:
+  # Registry configuration
+  REGISTRY: "localhost:30500"
+  KUBE_NAMESPACE: "default"
+  
+  # Helm configuration
+  HELM_CHART_PATH: "./infra/helm/app-chart"
+  HELM_RELEASE_NAME: "app"
+  
+  # Maven configuration
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+  MAVEN_CLI_OPTS: "--batch-mode --errors --fail-at-end --show-version"
+  
+  # Docker configuration
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+
+# Pipeline stages
+stages:
+  - build
+  - test
+  - docker
+  - deploy
+  - cleanup
+
+# Templates for reusability
+.maven_build_template: &maven_build
+  image: maven:3.8-openjdk-21
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .m2/repository
+  before_script:
+    - echo "Building with Maven..."
+
+.npm_build_template: &npm_build
+  image: node:18
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - ui/node_modules/
+  before_script:
+    - echo "Building with NPM..."
+
+.docker_template: &docker_build
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - echo "Logging into registry..."
+    - docker info
+
+#############################
+# BUILD STAGE
+#############################
+
+build:data-service:
+  <<: *maven_build
+  stage: build
+  script:
+    - cd data
+    - mvn $MAVEN_CLI_OPTS clean package -DskipTests
+    - ls -lh target/
+  artifacts:
+    paths:
+      - data/target/*.jar
+    expire_in: 1 hour
+  only:
+    changes:
+      - data/**/*
+      - .gitlab-ci.yml
+
+build:file-service:
+  <<: *maven_build
+  stage: build
+  script:
+    - cd file
+    - mvn $MAVEN_CLI_OPTS clean package -DskipTests
+  artifacts:
+    paths:
+      - file/target/*.jar
+    expire_in: 1 hour
+  only:
+    changes:
+      - file/**/*
+      - .gitlab-ci.yml
+
+build:refdata-service:
+  <<: *maven_build
+  stage: build
+  script:
+    - cd refdata
+    - mvn $MAVEN_CLI_OPTS clean package -DskipTests
+  artifacts:
+    paths:
+      - refdata/target/*.jar
+    expire_in: 1 hour
+  only:
+    changes:
+      - refdata/**/*
+      - .gitlab-ci.yml
+
+build:search-service:
+  <<: *maven_build
+  stage: build
+  script:
+    - cd search
+    - mvn $MAVEN_CLI_OPTS clean package -DskipTests
+  artifacts:
+    paths:
+      - search/target/*.jar
+    expire_in: 1 hour
+  only:
+    changes:
+      - search/**/*
+      - .gitlab-ci.yml
+
+build:ui:
+  <<: *npm_build
+  stage: build
+  script:
+    - cd ui
+    - npm ci
+    - npm run build
+  artifacts:
+    paths:
+      - ui/build/
+    expire_in: 1 hour
+  only:
+    changes:
+      - ui/**/*
+      - .gitlab-ci.yml
+
+#############################
+# TEST STAGE
+#############################
+
+test:data-service:
+  <<: *maven_build
+  stage: test
+  script:
+    - cd data
+    - mvn $MAVEN_CLI_OPTS test
+  coverage: '/Total.*?([0-9]{1,3})%/'
+  artifacts:
+    reports:
+      junit:
+        - data/target/surefire-reports/TEST-*.xml
+    paths:
+      - data/target/site/jacoco/
+    expire_in: 1 week
+  only:
+    changes:
+      - data/**/*
+      - .gitlab-ci.yml
+
+test:file-service:
+  <<: *maven_build
+  stage: test
+  script:
+    - cd file
+    - mvn $MAVEN_CLI_OPTS test
+  only:
+    changes:
+      - file/**/*
+      - .gitlab-ci.yml
+
+test:refdata-service:
+  <<: *maven_build
+  stage: test
+  script:
+    - cd refdata
+    - mvn $MAVEN_CLI_OPTS test
+  only:
+    changes:
+      - refdata/**/*
+      - .gitlab-ci.yml
+
+test:search-service:
+  <<: *maven_build
+  stage: test
+  script:
+    - cd search
+    - mvn $MAVEN_CLI_OPTS test
+  only:
+    changes:
+      - search/**/*
+      - .gitlab-ci.yml
+
+test:ui:
+  <<: *npm_build
+  stage: test
+  script:
+    - cd ui
+    - npm ci
+    - npm test -- --watchAll=false --passWithNoTests
+  only:
+    changes:
+      - ui/**/*
+      - .gitlab-ci.yml
+
+#############################
+# DOCKER BUILD & PUSH STAGE
+#############################
+
+docker:data-service:
+  <<: *docker_build
+  stage: docker
+  script:
+    - echo "Building data-service Docker image..."
+    - docker build -t $REGISTRY/app-data-service:$CI_COMMIT_SHORT_SHA ./data
+    - docker build -t $REGISTRY/app-data-service:latest ./data
+    - docker push $REGISTRY/app-data-service:$CI_COMMIT_SHORT_SHA
+    - docker push $REGISTRY/app-data-service:latest
+    - echo "Image pushed successfully"
+  only:
+    changes:
+      - data/**/*
+      - .gitlab-ci.yml
+  needs:
+    - build:data-service
+    - test:data-service
+
+docker:file-service:
+  <<: *docker_build
+  stage: docker
+  script:
+    - docker build -t $REGISTRY/app-file-service:$CI_COMMIT_SHORT_SHA ./file
+    - docker build -t $REGISTRY/app-file-service:latest ./file
+    - docker push $REGISTRY/app-file-service:$CI_COMMIT_SHORT_SHA
+    - docker push $REGISTRY/app-file-service:latest
+  only:
+    changes:
+      - file/**/*
+      - .gitlab-ci.yml
+  needs:
+    - build:file-service
+    - test:file-service
+
+docker:refdata-service:
+  <<: *docker_build
+  stage: docker
+  script:
+    - docker build -t $REGISTRY/app-refdata-service:$CI_COMMIT_SHORT_SHA ./refdata
+    - docker build -t $REGISTRY/app-refdata-service:latest ./refdata
+    - docker push $REGISTRY/app-refdata-service:$CI_COMMIT_SHORT_SHA
+    - docker push $REGISTRY/app-refdata-service:latest
+  only:
+    changes:
+      - refdata/**/*
+      - .gitlab-ci.yml
+  needs:
+    - build:refdata-service
+    - test:refdata-service
+
+docker:search-service:
+  <<: *docker_build
+  stage: docker
+  script:
+    - docker build -t $REGISTRY/app-search-service:$CI_COMMIT_SHORT_SHA ./search
+    - docker build -t $REGISTRY/app-search-service:latest ./search
+    - docker push $REGISTRY/app-search-service:$CI_COMMIT_SHORT_SHA
+    - docker push $REGISTRY/app-search-service:latest
+  only:
+    changes:
+      - search/**/*
+      - .gitlab-ci.yml
+  needs:
+    - build:search-service
+    - test:search-service
+
+docker:ui:
+  <<: *docker_build
+  stage: docker
+  script:
+    - docker build -t $REGISTRY/app-ui:$CI_COMMIT_SHORT_SHA ./ui
+    - docker build -t $REGISTRY/app-ui:latest ./ui
+    - docker push $REGISTRY/app-ui:$CI_COMMIT_SHORT_SHA
+    - docker push $REGISTRY/app-ui:latest
+  only:
+    changes:
+      - ui/**/*
+      - .gitlab-ci.yml
+  needs:
+    - build:ui
+    - test:ui
+
+#############################
+# DEPLOY STAGE
+#############################
+
+deploy:kind-cluster:
+  stage: deploy
+  image: alpine/helm:latest
+  before_script:
+    # Install kubectl
+    - apk add --no-cache curl
+    - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    - chmod +x kubectl
+    - mv kubectl /usr/local/bin/
+    # Configure kubeconfig (assumes GitLab runner has access to Kind cluster)
+    - mkdir -p ~/.kube
+    - echo "$KUBECONFIG_CONTENT" | base64 -d > ~/.kube/config
+  script:
+    - echo "Deploying to Kind cluster..."
+    - helm version
+    - kubectl version --client
+    - kubectl cluster-info
+    
+    # Upgrade Helm release with CI variables for secrets
+    - |
+      helm upgrade --install $HELM_RELEASE_NAME $HELM_CHART_PATH \
+        -f $HELM_CHART_PATH/values-local.yaml \
+        --set database.url="$DB_URL" \
+        --set database.username="$DB_USERNAME" \
+        --set database.password="$DB_PASSWORD" \
+        --set imagePullPolicy=Always \
+        --set dataService.image.tag=$CI_COMMIT_SHORT_SHA \
+        --set fileService.image.tag=$CI_COMMIT_SHORT_SHA \
+        --set refdataService.image.tag=$CI_COMMIT_SHORT_SHA \
+        --set searchService.image.tag=$CI_COMMIT_SHORT_SHA \
+        --set ui.image.tag=$CI_COMMIT_SHORT_SHA \
+        --wait \
+        --timeout 5m
+    
+    # Verify deployment
+    - kubectl get pods -n $KUBE_NAMESPACE
+    - kubectl get svc -n $KUBE_NAMESPACE
+    
+  environment:
+    name: kind-local
+    url: http://app.local
+  when: manual  # Requires manual approval for deployment
+  only:
+    - main
+    - develop
+
+# Alternative: Auto-deploy for develop branch
+deploy:auto-develop:
+  extends: deploy:kind-cluster
+  when: on_success  # Auto-deploy without approval
+  only:
+    - develop
+
+#############################
+# CLEANUP STAGE (Optional)
+#############################
+
+cleanup:old-images:
+  stage: cleanup
+  image: alpine:latest
+  script:
+    - echo "Cleanup job - placeholder for future image cleanup"
+    # Future: Add registry cleanup logic
+  when: manual
+  only:
+    - main
+
+#############################
+# UTILITY JOBS
+#############################
+
+# Lint Helm Chart
+lint:helm:
+  stage: build
+  image: alpine/helm:latest
+  script:
+    - helm lint $HELM_CHART_PATH
+    - helm lint $HELM_CHART_PATH -f $HELM_CHART_PATH/values-local.yaml
+  only:
+    changes:
+      - infra/helm/**/*
+      - .gitlab-ci.yml
+
+# Validate Kubernetes manifests
+validate:k8s:
+  stage: build
+  image: alpine/k8s:1.28.4
+  script:
+    - kubectl --dry-run=client apply -f infra/k8s/
+  only:
+    changes:
+      - infra/k8s/**/*
+      - .gitlab-ci.yml

@@ -46,7 +46,20 @@ Selector labels
 {{- define "app.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "app.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/component: {{ .component }}
 {{- end }}
+
+{{/*
+Create full image name with optional registry prefix
+Usage: {{ include "app.image" (dict "repository" .Values.dataService.image.repository "tag" .Values.dataService.image.tag "registry" .Values.imageRegistry) }}
+*/}}
+{{- define "app.image" -}}
+{{- if .registry -}}
+{{ .registry }}/{{ .repository }}:{{ .tag }}
+{{- else -}}
+{{ .repository }}:{{ .tag }}
+{{- end -}}
+{{- end -}}
 
 {{/*
 Service-specific labels

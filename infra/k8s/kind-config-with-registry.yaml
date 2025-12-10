@@ -1,0 +1,43 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+
+# 3-node cluster (1 control-plane + 2 workers) with registry support
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+  extraPortMappings:
+  # HTTP
+  - containerPort: 30080
+    hostPort: 80
+    protocol: TCP
+  # HTTPS
+  - containerPort: 30443
+    hostPort: 443
+    protocol: TCP
+  # Registry
+  - containerPort: 30500
+    hostPort: 30500
+    protocol: TCP
+
+- role: worker
+- role: worker
+
+# Configure containerd to use local registry
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+      [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:30500"]
+        endpoint = ["http://registry.container-registry.svc.cluster.local:5000"]
+      [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.container-registry.svc.cluster.local:5000"]
+        endpoint = ["http://registry.container-registry.svc.cluster.local:5000"]
+    [plugins."io.containerd.grpc.v1.cri".registry.configs]
+      [plugins."io.containerd.grpc.v1.cri".registry.configs."registry.container-registry.svc.cluster.local:5000".tls]
+        insecure_skip_verify = true
+      [plugins."io.containerd.grpc.v1.cri".registry.configs."localhost:30500".tls]
+        insecure_skip_verify = true

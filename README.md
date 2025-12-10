@@ -12,9 +12,10 @@ A production-ready, full-stack microservices application demonstrating modern de
 4. [Docker Compose](#-docker-compose)
 5. [Kubernetes Deployment](#-kubernetes-deployment)
 6. [Helm Deployment (Recommended)](#-helm-deployment-recommended)
-7. [Production Deployment (AWS EKS)](#-production-deployment-aws-eks)
-8. [Troubleshooting](#-troubleshooting)
-9. [Developer FAQ](#-developer-faq)
+7. [GitLab CI/CD Setup (Automated Deployments)](#-gitlab-cicd-setup-automated-deployments)
+8. [Production Deployment (AWS EKS)](#-production-deployment-aws-eks)
+9. [Troubleshooting](#-troubleshooting)
+10. [Developer FAQ](#-developer-faq)
 
 ---
 

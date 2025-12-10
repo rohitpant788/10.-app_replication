@@ -6,6 +6,11 @@
 global:
   appName: app
 
+# Container registry configuration
+# Leave empty for production (uses default Docker Hub)
+# Set to "localhost:30500" for local Kind registry
+imageRegistry: ""
+
 # Image pull policy
 imagePullPolicy: IfNotPresent
 

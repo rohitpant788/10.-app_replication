@@ -1,0 +1,72 @@
+version: '3.8'
+
+networks:
+  gitlab-network:
+    driver: bridge
+
+volumes:
+  gitlab-config:
+  gitlab-logs:
+  gitlab-data:
+
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: gitlab-ce
+    restart: always
+    hostname: gitlab.local
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        # External URL - accessible at http://gitlab.local
+        external_url 'http://gitlab.local:8080'
+        
+        # Initial root password (change after first login!)
+        gitlab_rails['initial_root_password'] = 'GitLab@2025Root'
+        
+        # Disable HTTPS (using HTTP for local development)
+        nginx['listen_https'] = false
+        
+        # Registry settings
+        registry_external_url 'http://gitlab.local:5050'
+        gitlab_rails['registry_enabled'] = true
+        
+        # Performance settings for local development
+        postgresql['shared_buffers'] = "256MB"
+        postgresql['max_worker_processes'] = 4
+        sidekiq['max_concurrency'] = 10
+        
+        # Disable features not needed locally
+        prometheus_monitoring['enable'] = false
+        
+    ports:
+      - '8080:8080'      # HTTP
+      - '8443:443'       # HTTPS (if needed later)
+      - '2222:22'        # SSH
+      - '5050:5050'      # Container Registry
+    volumes:
+      - gitlab-config:/etc/gitlab
+      - gitlab-logs:/var/log/gitlab
+      - gitlab-data:/var/opt/gitlab
+    networks:
+      - gitlab-network
+    shm_size: '256m'
+    healthcheck:
+      test: ['CMD', '/opt/gitlab/bin/gitlab-healthcheck']
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 300s
+
+  # Optional: GitLab Runner (can be started separately)
+  # Uncomment if you want runner in same compose file
+  # gitlab-runner:
+  #   image: gitlab/gitlab-runner:latest
+  #   container_name: gitlab-runner
+  #   restart: always
+  #   volumes:
+  #     - ./gitlab-runner/config:/etc/gitlab-runner
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #   networks:
+  #     - gitlab-network
+  #   depends_on:
+  #     - gitlab

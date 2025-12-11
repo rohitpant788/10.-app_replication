@@ -1,24 +1,20 @@
 # Local Kind cluster specific overrides
 # Use this file with: helm install app ./app-chart -f ./app-chart/values-local.yaml
 
-# Local Docker Registry
-imageRegistry: "localhost:30500"
-
-# Use Always to pull latest images from local registry
-# (or IfNotPresent if you want to avoid unnecessary pulls)
-imagePullPolicy: Always
+# Use local images (don't pull from registry)
+imagePullPolicy: Never
 
 # Override fake-smtp to also use Never for local
 fakeSmtp:
   image:
-    pullPolicy: IfNotPresent
+    pullPolicy: Never
 
 # Database credentials for local Neon DB
 # IMPORTANT: Replace these values with your actual Neon DB credentials
 database:
-  url: jdbc:postgresql://ep-steep-paper-a4w8wloy-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
-  username: neondb_owner
-  password: npg_qnJyzb4A8Grk
+  url: "jdbc:postgresql://your-neon-db-host/your-database-name"
+  username: "your-username"
+  password: "your-password"
 
 # Enable fake SMTP for local development
 fakeSmtp:
